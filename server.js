@@ -2,13 +2,19 @@ console.log("RUNNING FILE:", __filename);
 
 const express = require("express");
 const fetch = require("node-fetch");
+const path = require("path");
 const app = express();
 
 // ✅ Use Render's dynamic port
 const PORT = process.env.PORT || 3000;
 
-// Serve static files (index.html, etc.)
+// Serve static files (CSS, JS, etc.)
 app.use(express.static("."));
+
+// Serve index.html on root
+app.get("/", (req, res) => {
+  res.sendFile(path.join(__dirname, "index.html"));
+});
 
 // Rewrite HTML links, scripts, and forms to go through the proxy
 function rewriteHTML(html, base) {
