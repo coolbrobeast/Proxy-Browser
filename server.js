@@ -3,13 +3,16 @@ console.log("RUNNING FILE:", __filename);
 const express = require("express");
 const fetch = require("node-fetch");
 const app = express();
-const PORT = 3000;
 
+// ✅ Use Render's dynamic port
+const PORT = process.env.PORT || 3000;
+
+// Serve static files (index.html, etc.)
 app.use(express.static("."));
 
+// Rewrite HTML links, scripts, and forms to go through the proxy
 function rewriteHTML(html, base) {
   return html
-    // rewrite <a href="">
     .replace(/href="([^"]+)"/g, (m, url) => {
       try {
         const u = new URL(url, base).href;
@@ -18,7 +21,6 @@ function rewriteHTML(html, base) {
         return m;
       }
     })
-    // rewrite <script src="">
     .replace(/src="([^"]+)"/g, (m, url) => {
       try {
         const u = new URL(url, base).href;
@@ -27,7 +29,6 @@ function rewriteHTML(html, base) {
         return m;
       }
     })
-    // rewrite <form action="">
     .replace(/action="([^"]*)"/g, (m, url) => {
       try {
         const u = new URL(url || base, base).href;
@@ -38,6 +39,7 @@ function rewriteHTML(html, base) {
     });
 }
 
+// Proxy endpoint
 app.get("/proxy", async (req, res) => {
   const target = req.query.url;
   if (!target) return res.status(400).send("Missing URL");
@@ -64,7 +66,7 @@ app.get("/proxy", async (req, res) => {
       return res.send(body);
     }
 
-    // non-HTML: send as-is
+    // Non-HTML content: send as-is
     const buf = Buffer.from(body);
     res.setHeader("Content-Type", type);
     res.send(buf);
@@ -74,4 +76,5 @@ app.get("/proxy", async (req, res) => {
   }
 });
 
-app.listen(PORT, () => console.log(`Proxy at http://localhost:${PORT}`));
+// Start server
+app.listen(PORT, () => console.log(`Proxy running on port ${PORT}`));
