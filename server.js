@@ -1,49 +1,17 @@
-console.log("RUNNING FILE:", __filename);
-
 const express = require("express");
 const fetch = require("node-fetch");
 const path = require("path");
 const app = express();
 
-// ✅ Use Render's dynamic port
 const PORT = process.env.PORT || 3000;
 
-// Serve static files (CSS, JS, etc.)
-app.use(express.static("."));
+// Serve static files from /public
+app.use(express.static(path.join(__dirname, "public")));
 
 // Serve index.html on root
 app.get("/", (req, res) => {
-  res.sendFile(path.join(__dirname, "index.html"));
+  res.sendFile(path.join(__dirname, "public", "index.html"));
 });
-
-// Rewrite HTML links, scripts, and forms to go through the proxy
-function rewriteHTML(html, base) {
-  return html
-    .replace(/href="([^"]+)"/g, (m, url) => {
-      try {
-        const u = new URL(url, base).href;
-        return `href="/proxy?url=${encodeURIComponent(u)}"`;
-      } catch {
-        return m;
-      }
-    })
-    .replace(/src="([^"]+)"/g, (m, url) => {
-      try {
-        const u = new URL(url, base).href;
-        return `src="/proxy?url=${encodeURIComponent(u)}"`;
-      } catch {
-        return m;
-      }
-    })
-    .replace(/action="([^"]*)"/g, (m, url) => {
-      try {
-        const u = new URL(url || base, base).href;
-        return `action="/proxy?url=${encodeURIComponent(u)}"`;
-      } catch {
-        return m;
-      }
-    });
-}
 
 // Proxy endpoint
 app.get("/proxy", async (req, res) => {
@@ -67,12 +35,16 @@ app.get("/proxy", async (req, res) => {
     let body = await upstream.text();
 
     if (type.includes("text/html")) {
-      body = rewriteHTML(body, url);
+      body = body
+        .replace(/href="([^"]+)"/g, (m, u) => `href="/proxy?url=${encodeURIComponent(new URL(u, url).href)}"`)
+        .replace(/src="([^"]+)"/g, (m, u) => `src="/proxy?url=${encodeURIComponent(new URL(u, url).href)}"`)
+        .replace(/action="([^"]*)"/g, (m, u) => `action="/proxy?url=${encodeURIComponent(new URL(u || url, url).href)}"`);
+
       res.setHeader("Content-Type", "text/html");
       return res.send(body);
     }
 
-    // Non-HTML content: send as-is
+    // Non-HTML: send as-is
     const buf = Buffer.from(body);
     res.setHeader("Content-Type", type);
     res.send(buf);
@@ -82,5 +54,4 @@ app.get("/proxy", async (req, res) => {
   }
 });
 
-// Start server
 app.listen(PORT, () => console.log(`Proxy running on port ${PORT}`));
